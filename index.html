@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora Hidráulica - Caída Canal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden-tab { display: none !important; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans">
+
+<div id="app" class="min-h-screen p-4 md:p-8 space-y-8">
+    
+    <!-- HEADER -->
+    <div class="bg-[#2D3142] p-6 md:p-8 rounded-[2rem] shadow-2xl flex flex-col items-center gap-6">
+        <div class="text-center w-full">
+            <h1 class="text-3xl font-black text-white uppercase tracking-tighter">Calculadora Hidráulica</h1>
+            <p class="text-[#8E95B3] font-black mt-1 uppercase text-xs tracking-widest">Módulo: Caída en Canal</p>
+        </div>
+    </div>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div class="grid grid-cols-1 xl:grid-cols-4 gap-8">
+        
+        <!-- PANEL IZQUIERDO (SIDEBAR CAÍDA) -->
+        <div id="sidebar-caida" class="xl:col-span-1 bg-white p-5 rounded-[1.5rem] shadow-xl border border-slate-200 h-fit">
+            <h2 class="text-lg font-black uppercase text-slate-800 border-b-2 border-indigo-500 pb-1.5 mb-4">1. Parámetros</h2>
+            
+            <div class="grid grid-cols-3 gap-2 mb-3">
+                <div class="bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 col-span-2 flex flex-col justify-center">
+                    <label class="text-[10px] font-black text-slate-500 uppercase">Nombre Obra / Tabla</label>
+                    <input type="text" id="in-nombre" value="CAÍDA VERTICAL (CV)" oninput="markTitleEdited(); updateEngine();" class="w-full bg-transparent font-bold outline-none text-slate-800 text-sm" />
+                </div>
+                <button onclick="exportarPlano()" class="col-span-1 bg-white hover:bg-slate-50 text-indigo-600 border border-indigo-200 rounded-xl font-bold shadow-md transition-all active:scale-95 flex flex-col items-center justify-center p-2">
+                    <span class="text-xl leading-none mb-0.5">📸</span>
+                    <span class="text-[8px] uppercase tracking-wider text-center leading-tight">Exportar<br>PNG</span>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mb-3 pt-2 border-t border-slate-200">
+                <div class="bg-amber-50 px-2.5 py-2 rounded-xl border border-amber-100">
+                    <label class="text-[8px] font-black text-amber-600 uppercase">Cota Superior (m)</label>
+                    <input type="number" id="in-cota-sup" step="0.01" min="0" placeholder="Ej: 100.00" oninput="calcularCotas()" class="w-full bg-transparent text-sm font-black text-amber-900 outline-none" />
+                </div>
+                <div class="bg-amber-50 px-2.5 py-2 rounded-xl border border-amber-100">
+                    <label class="text-[8px] font-black text-amber-600 uppercase">Cota Inferior (m)</label>
+                    <input type="number" id="in-cota-inf" step="0.01" min="0" placeholder="Ej: 97.50" oninput="calcularCotas()" class="w-full bg-transparent text-sm font-black text-amber-900 outline-none" />
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-3 gap-2">
+                <div class="bg-indigo-50 px-2.5 py-2 rounded-xl border border-indigo-100">
+                    <label class="text-[8px] font-black text-indigo-600 uppercase">Desnivel (m)</label>
+                    <input type="number" id="in-HT" step="0.01" min="0" value="2.50" oninput="autoAdjustN(); updateEngine();" class="w-full bg-transparent text-sm font-black text-indigo-900 outline-none" />
+                </div>
+                <div class="bg-indigo-50 px-2.5 py-2 rounded-xl border border-indigo-100">
+                    <label class="text-[8px] font-black text-indigo-600 uppercase">Distancia (m)</label>
+                    <input type="number" id="in-LT" step="0.01" min="0" value="0.00" oninput="autoAdjustN(); updateEngine();" class="w-full bg-transparent text-sm font-black text-indigo-900 outline-none" />
+                </div>
+                
+                <div id="container-n" class="bg-slate-100 px-2.5 py-2 rounded-xl border border-slate-200 transition-all duration-300">
+                    <label class="text-[8px] font-black text-slate-500 uppercase flex justify-between w-full">Peldaños <span id="label-n-val">5</span></label>
+                    <input type="number" id="in-n" min="1" max="25" value="5" oninput="updateEngine()" class="w-full bg-transparent text-sm font-black text-slate-700 outline-none disabled:cursor-not-allowed" />
+                    <p id="label-n-msg" class="text-[7px] mt-0.5 font-bold uppercase leading-tight text-slate-400">Activos (OK)</p>
+                </div>
+                
+                <div class="bg-slate-50 px-2.5 py-2 rounded-xl border border-slate-200">
+                    <label class="text-[8px] font-bold text-slate-500 uppercase">Caudal (m³/s)</label>
+                    <input type="number" id="in-Q" step="0.001" min="0" value="0.050" oninput="updateEngine()" class="w-full bg-transparent font-bold outline-none text-sm" />
+                </div>
+                <div class="bg-slate-50 px-2.5 py-2 rounded-xl border border-slate-200">
+                    <label class="text-[8px] font-bold text-slate-500 uppercase">Ancho (m)</label>
+                    <input type="number" id="in-b" step="0.01" min="0.01" value="0.30" oninput="updateEngine()" class="w-full bg-transparent font-bold outline-none text-sm" />
+                </div>
+                
+                <div class="bg-blue-50 px-2.5 py-2 rounded-xl border border-blue-200 col-span-2">
+                    <label class="text-[8px] font-bold text-blue-600 uppercase">Material del Canal (n Manning)</label>
+                    <select id="in-material" onchange="updateEngine()" class="w-full bg-transparent font-bold text-sm text-blue-900 outline-none cursor-pointer">
+                        <option value="0.013">Hormigón (n=0.013)</option>
+                        <option value="0.015">Hormigón alisado (n=0.015)</option>
+                        <option value="0.025">Tierra (n=0.025)</option>
+                        <option value="0.030">Mampostería (n=0.030)</option>
+                    </select>
+                </div>
+
+                <!-- INPUT MURO AHORA ES AUTO-AJUSTABLE -->
+                <div class="bg-emerald-50 px-2.5 py-2 rounded-xl border border-emerald-100">
+                    <label class="text-[8px] font-black text-emerald-600 uppercase">Muro (m) <span class="text-[6px] text-emerald-400">(Auto)</span></label>
+                    <input type="number" id="in-muro" step="0.05" min="0" value="0.40" oninput="markMuroEdited(); updateEngine();" class="w-full bg-transparent font-black text-emerald-800 outline-none text-sm" />
+                </div>
+                <div class="bg-emerald-50 px-2.5 py-2 rounded-xl border border-emerald-100">
+                    <label class="text-[8px] font-black text-emerald-600 uppercase">Radier (m)</label>
+                    <input type="number" id="in-radier" step="0.01" min="0" value="0.15" oninput="updateEngine()" class="w-full bg-transparent font-black text-emerald-800 outline-none text-sm" />
+                </div>
+                <div class="bg-cyan-50 px-2.5 py-2 rounded-xl border border-cyan-100">
+                    <label class="text-[8px] font-black text-cyan-600 uppercase">Inicio (m)</label>
+                    <input type="number" id="in-lent" step="0.10" min="0" value="1.00" oninput="updateEngine()" class="w-full bg-transparent font-black text-cyan-800 outline-none text-sm" />
+                </div>
+                <div class="bg-cyan-50 px-2.5 py-2 rounded-xl border border-cyan-100">
+                    <label class="text-[8px] font-black text-cyan-600 uppercase">Final (m)</label>
+                    <input type="number" id="in-lsal" step="0.10" min="0" value="1.00" oninput="updateEngine()" class="w-full bg-transparent font-black text-cyan-800 outline-none text-sm" />
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL DERECHO (CANVAS + RESUMEN HTML) -->
+        <div id="main-caida" class="xl:col-span-3 flex flex-col gap-6">
+            
+            <!-- PLOTTER ALTA CALIDAD -->
+            <div class="bg-slate-300 rounded-[2rem] shadow-inner border-4 border-slate-400 p-4 sm:p-6 lg:p-8 flex items-center justify-center min-h-[500px]">
+                <div class="bg-white shadow-2xl border-[10px] border-white w-full rounded-xl overflow-hidden relative">
+                    <canvas id="caidaCanvas" width="2400" height="1400" class="w-full h-auto block"></canvas>
+                </div>
+            </div>
+
+            <!-- CUADRO DE RESUMEN HTML -->
+            <div class="bg-slate-200/50 rounded-[2rem] shadow-sm border border-slate-200 p-6 sm:p-8 relative">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-2">
+                    <div>
+                        <h3 class="text-2xl font-black text-slate-800 uppercase tracking-tighter">Resumen de Cálculos</h3>
+                        <p class="text-slate-500 font-medium text-sm mt-1">Detalles hidráulicos, topográficos y estructurales.</p>
+                    </div>
+                    
+                    <!-- BOTONES DE EXPORTACIÓN -->
+                    <div class="flex flex-wrap gap-2 mt-4 md:mt-0">
+                        <button onclick="copySummaryData()" class="bg-indigo-100 hover:bg-indigo-600 text-indigo-700 hover:text-white px-4 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 shadow-sm border border-indigo-200 active:scale-95 text-sm">
+                            <span id="copy-icon" class="text-lg leading-none">📋</span> <span id="copy-text">Copiar Resumen</span>
+                        </button>
+                        <button onclick="exportarMemoriaNormativa()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 shadow-md active:scale-95 text-sm">
+                            <span class="text-lg leading-none">📄</span> Exportar Memoria Normativa
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Contenido Dinámico JS -->
+                <div id="summary-content" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Se inyecta por JS -->
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- ESTADO GLOBAL ---
+    let tituloEditado = false;
+    let muroEditado = false; // NUEVO: Para saber si el usuario forzó el muro
+
+    // Elementos DOM
+    const inNombre = document.getElementById('in-nombre');
+    const inHT = document.getElementById('in-HT');
+    const inLT = document.getElementById('in-LT');
+    const inQ = document.getElementById('in-Q');
+    const inB = document.getElementById('in-b');
+    const inN = document.getElementById('in-n');
+    const inRadier = document.getElementById('in-radier');
+    const inMuro = document.getElementById('in-muro');
+    const inLEnt = document.getElementById('in-lent');
+    const inLSal = document.getElementById('in-lsal');
+    const inMaterial = document.getElementById('in-material');
+    const canvas = document.getElementById('caidaCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function markTitleEdited() { tituloEditado = true; }
+    function markMuroEdited() { muroEditado = true; } // NUEVO
+
+    function exportarPlano() {
+        if (!canvas) return;
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png', 1.0);
+        link.download = `Plano_${inNombre.value.replace(/\s/g, '_')}.png`;
+        link.click();
+    }
+
+    function calcularCotas() {
+        const sup = parseFloat(document.getElementById('in-cota-sup').value);
+        const inf = parseFloat(document.getElementById('in-cota-inf').value);
+        if (!isNaN(sup) && !isNaN(inf)) {
+            const diff = sup - inf;
+            if (diff >= 0) {
+                inHT.value = diff.toFixed(2);
+                autoAdjustN();
+                updateEngine();
+            }
+        }
+    }
+
+    function autoAdjustN() {
+        const valHT = Math.max(0, parseFloat(inHT.value) || 0);
+        const valLT = Math.max(0, parseFloat(inLT.value) || 0);
+        if (valHT <= 0) return;
+        
+        const pendientePct = valLT > 0 ? (valHT / valLT) * 100 : 9999;
+        
+        if (pendientePct >= 200 || pendientePct <= 45 || valLT === 0) {
+            document.getElementById('in-n').value = 1;
+            return;
+        }
+
+        let optimalN = Math.ceil(valHT / 0.50);
+        if (optimalN === 1 && valHT >= 0.50) optimalN = 2; 
+        document.getElementById('in-n').value = optimalN;
+    }
+
+    function copySummaryData() {
+        if (!window.copyHtml) return;
+        const el = document.createElement('div');
+        el.innerHTML = window.copyHtml;
+        el.style.position = 'absolute';
+        el.style.left = '-9999px';
+        document.body.appendChild(el);
+        
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        
+        document.execCommand('copy');
+        
+        document.body.removeChild(el);
+        selection.removeAllRanges();
+        
+        const btnText = document.getElementById('copy-text');
+        const btnIcon = document.getElementById('copy-icon');
+        const oldText = btnText.innerHTML;
+        
+        btnText.innerText = "COPIADO";
+        btnIcon.innerText = "✅";
+        
+        setTimeout(() => {
+            btnText.innerHTML = oldText;
+            btnIcon.innerText = "📋";
+        }, 2000);
+    }
+
+    // NUEVO: Exportar Memoria Técnica con Normativa
+    function exportarMemoriaNormativa() {
+        const valHT = parseFloat(inHT.value) || 0;
+        const valLT = parseFloat(inLT.value) || 0;
+        const valQ = parseFloat(inQ.value) || 0;
+        const valB = parseFloat(inB.value) || 0.1;
+        const valMuro = parseFloat(inMuro.value) || 0;
+        const valRadier = parseFloat(inRadier.value) || 0;
+        
+        // Re-calcular valores necesarios para el texto
+        const g = 9.81;
+        const S = valLT > 0 ? (valHT / valLT) : 0;
+        const n_manning = parseFloat(inMaterial.value);
+        
+        let yn = 0.1; 
+        for(let i=0; i<20; i++) {
+            const A = valB * yn; const P = valB + 2 * yn; const R = A / P;
+            const Q_calc = (1 / n_manning) * A * Math.pow(R, 2/3) * Math.pow(S, 0.5);
+            const delta = 0.001; const A_d = valB * (yn+delta); const P_d = valB + 2 * (yn+delta);
+            const Q_d = (1 / n_manning) * A_d * Math.pow(A_d/P_d, 2/3) * Math.pow(S, 0.5);
+            const dQ = (Q_d - Q_calc) / delta;
+            if (Math.abs(dQ) > 0.0001) { yn = yn + (valQ - Q_calc) / dQ; }
+        }
+        if (yn < 0 || isNaN(yn)) yn = Math.pow(Math.pow(valQ/valB, 2) / g, 1 / 3);
+
+        const yc = Math.pow(Math.pow(valQ/valB, 2) / g, 1 / 3);
+        const fb = 0.60 + (0.0037 * Math.pow((valQ/valB)/yc, 3) * Math.sqrt(yc));
+        
+        let h1 = 0.1; let h2 = yc; let L_foso = 0; let P_foso = 0;
+        const isCV = valLT === 0 || (valHT/valLT) >= 2;
+        const isRI = !isCV && ((valHT/valLT) <= 0.45 && (valHT/valLT) >= 0.05);
+        
+        if (isCV || isRI) {
+            const E0 = 1.5 * yc + valHT; 
+            for(let i=0; i<15; i++) {
+                const term = 2 * g * (E0 - h1);
+                if (term > 0) h1 = (valQ/valB) / Math.sqrt(term);
+            }
+            const Fr1 = (valQ/valB) / (h1 * Math.sqrt(g * h1));
+            h2 = (h1 / 2) * (Math.sqrt(1 + 8 * Math.pow(Fr1, 2)) - 1);
+            L_foso = 4.5 * h2;
+            P_foso = Math.max(0.20, h2 - yn);
+        }
+
+        let texto = `MEMORIA DE CÁLCULO JUSTIFICADA\n`;
+        texto += `==================================\n`;
+        texto += `Proyecto: ${inNombre.value.toUpperCase()}\n`;
+        texto += `Fecha: ${new Date().toLocaleDateString()}\n\n`;
+
+        texto += `1. PARÁMETROS DE ENTRADA\n`;
+        texto += `------------------------\n`;
+        texto += `- Caudal de diseño (Q): ${valQ.toFixed(3)} m³/s\n`;
+        texto += `- Ancho de solera (b): ${valB.toFixed(2)} m\n`;
+        texto += `- Desnivel topográfico (DV): ${valHT.toFixed(2)} m\n`;
+        texto += `- Longitud horizontal (DH): ${valLT.toFixed(2)} m\n\n`;
+
+        texto += `2. CÁLCULOS HIDRÁULICOS Y NORMATIVA\n`;
+        texto += `-----------------------------------\n`;
+        texto += `a) Tirante Crítico (yc):\n`;
+        texto += `   Fórmula: yc = (q^2 / g)^(1/3), donde q = Q/b\n`;
+        texto += `   Norma: Ecuación de Froude = 1 (Flujo Crítico).\n`;
+        texto += `   Resultado: ${yc.toFixed(3)} m\n\n`;
+
+        texto += `b) Tirante Normal (yn):\n`;
+        texto += `   Fórmula: Ecuación de Manning (Q = (1/n) * A * R^(2/3) * S^(1/2))\n`;
+        texto += `   Norma: Cálculo de flujo uniforme en canales abiertos.\n`;
+        texto += `   Material (n): ${n_manning}\n`;
+        texto += `   Resultado: ${yn.toFixed(3)} m\n\n`;
+
+        texto += `c) Borde Libre (fb):\n`;
+        texto += `   Fórmula: fb = 0.60 + 0.0037 * V^3 * (yc)^(1/2)\n`;
+        texto += `   Norma: Criterio empírico para canales revestidos (evita derrames).\n`;
+        texto += `   Resultado: ${fb.toFixed(2)} m\n\n`;
+
+        texto += `d) Dimensionamiento del Muro (Hm):\n`;
+        texto += `   Fórmula: Hm = max(yn, yc) + fb (Redondeado a 0.05m)\n`;
+        texto += `   Norma: Criterio de resguardo estructural y capacidad hidráulica.\n`;
+        texto += `   Resultado: ${valMuro.toFixed(2)} m\n\n`;
+
+        if (isCV || isRI) {
+            texto += `e) Diseño del Foso Disipador (USBR):\n`;
+            texto += `   Norma: U.S. Bureau of Reclamation (USBR) - Criterio de resalto hidráulico.\n`;
+            texto += `   - Tirante supercrítico inicial (h1): ${h1.toFixed(3)} m\n`;
+            texto += `   - Tirante conjugado (h2): ${h2.toFixed(3)} m\n`;
+            texto += `   - Largo del foso (L = 4.5 * h2): ${L_foso.toFixed(2)} m\n`;
+            texto += `   - Profundidad del foso (P = h2 - yn): ${P_foso.toFixed(2)} m\n\n`;
+        }
+
+        texto += `3. REFERENCIAS BIBLIOGRÁFICAS\n`;
+        texto += `------------------------------\n`;
+        texto += `- Chow, V. T. (1994). Hidráulica de Canales Abiertos. McGraw-Hill.\n`;
+        texto += `- U.S. Bureau of Reclamation (USBR). (1987). Design of Small Dams. Denver, Colorado.\n`;
+        texto += `- Ministerio de Obras Públicas (MOP). Manual de Obras Tipo - Dirección de Riego.\n`;
+        texto += `- Código de Aguas de Chile (DGA).\n`;
+
+        // Descargar archivo
+        const blob = new Blob([texto], { type: 'text/plain;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Memoria_Normativa_${inNombre.value.replace(/\s/g, '_')}.txt`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+
+    // --- MOTOR HIDRÁULICO ---
+    function updateEngine() {
+        const valHT = Math.max(0, parseFloat(inHT.value) || 0);
+        const valLT = Math.max(0, parseFloat(inLT.value) || 0);
+        const valQ = Math.max(0, parseFloat(inQ.value) || 0);
+        const valB = Math.max(0.01, parseFloat(inB.value) || 0.1);
+        let valN = Math.max(1, parseInt(inN.value, 10) || 1);
+        const valRadier = Math.max(0, parseFloat(inRadier.value) || 0);
+        let valMuro = Math.max(0, parseFloat(inMuro.value) || 0);
+        const valLargoEnt = Math.max(0, parseFloat(inLEnt.value) || 0);
+        const valLargoSal = Math.max(0, parseFloat(inLSal.value) || 0);
+        const n_manning = parseFloat(inMaterial.value);
+
+        const g = 9.81;
+        const pendientePct = valLT > 0 ? (valHT / valLT) * 100 : 9999;
+        const S = valLT > 0 ? (valHT / valLT) : 0; 
+        
+        let tipoCaida = '';
+        if (pendientePct >= 200 || valLT === 0) { tipoCaida = 'CV'; } 
+        else if (pendientePct <= 45 && pendientePct >= 5) { tipoCaida = 'RI'; } 
+        else if (pendientePct < 5) { tipoCaida = 'CR'; } 
+        else { tipoCaida = (valN >= 2) ? 'CE' : 'RI'; }
+
+        const isCV = (tipoCaida === 'CV');
+        const isCE = (tipoCaida === 'CE');
+        const isRI = (tipoCaida === 'RI');
+        const isCR = (tipoCaida === 'CR');
+        const hasFoso = (isCV || isRI); 
+
+        // Cálculos Hidráulicos Previos
+        const qFlow = valQ / valB;
+        const yc = Math.pow(Math.pow(qFlow, 2) / g, 1 / 3);
+        
+        // Tirante Normal (Manning)
+        let yn = 0.1; 
+        for(let i=0; i<20; i++) {
+            const A = valB * yn; const P = valB + 2 * yn; const R = A / P;
+            const Q_calc = (1 / n_manning) * A * Math.pow(R, 2/3) * Math.pow(S, 0.5);
+            const delta = 0.001; const A_d = valB * (yn+delta); const P_d = valB + 2 * (yn+delta);
+            const Q_d = (1 / n_manning) * A_d * Math.pow(A_d/P_d, 2/3) * Math.pow(S, 0.5);
+            const dQ = (Q_d - Q_calc) / delta;
+            if (Math.abs(dQ) > 0.0001) { yn = yn + (valQ - Q_calc) / dQ; }
+        }
+        if (yn < 0 || isNaN(yn)) yn = yc; 
+
+        // Borde Libre
+        const vc = qFlow / (yc || 0.1);
+        const fb = 0.60 + (0.0037 * Math.pow(vc, 3) * Math.sqrt(yc || 0.1));
+
+        // --- AUTO-AJUSTE DEL MURO ---
+        if (!muroEditado) {
+            // Calcula la altura necesaria y redondea al 0.05m superior más cercano
+            const alturaCalculada = Math.max(yn, yc) + fb;
+            valMuro = Math.ceil(alturaCalculada * 20) / 20; 
+            inMuro.value = valMuro.toFixed(2);
+        }
+
+        // Cálculo del Foso Disipador (USBR)
+        let h1 = 0.1; let h2 = yc; let L_foso = 0; let P_foso = 0;
+        if (hasFoso) {
+            const E0 = 1.5 * yc + valHT; 
+            for(let i=0; i<15; i++) {
+                const term = 2 * g * (E0 - h1);
+                if (term > 0) h1 = qFlow / Math.sqrt(term);
+            }
+            const Fr1 = qFlow / (h1 * Math.sqrt(g * h1));
+            h2 = (h1 / 2) * (Math.sqrt(1 + 8 * Math.pow(Fr1, 2)) - 1);
+            L_foso = 4.5 * h2;
+            P_foso = Math.max(0.20, h2 - yn);
+        }
+
+        let valDistanciaRadierBajada = 0;
+        if (isCE) { valDistanciaRadierBajada = valHT + valLT; } 
+        else {
+            valDistanciaRadierBajada = Math.sqrt(Math.pow(valLT, 2) + Math.pow(valHT, 2));
+            if (hasFoso) { valDistanciaRadierBajada += P_foso + L_foso + P_foso; }
+        }
+
+        const Fr = vc / Math.sqrt(g * (yc || 0.1));
+        const he = valHT / (isCE ? valN : 1);
+        const le = (isCE && valN > 1) ? valLT / (valN - 1) : valLT;
+
+        if (!tituloEditado) {
+            if (isCV) inNombre.value = "CAÍDA VERTICAL (CV)"; else if (isCE) inNombre.value = "CAÍDA ESCALONADA (CE)"; else if (isCR) inNombre.value = "CANAL RECTO (CR)"; else if (isRI) inNombre.value = "RAMPA INCLINADA (RI)";
+        }
+
+        const strPendiente = valLT === 0 ? "90° (Vertical)" : pendientePct.toFixed(1) + " %";
+
+        // --- ACTUALIZAR UI HTML "RESUMEN DE CÁLCULOS" ---
+        function renderCard(title, icon, items, badge="") {
+            let html = `<div class="bg-[#f8fafc] p-5 rounded-2xl border border-slate-200 h-full flex flex-col">
+                <h4 class="font-black text-slate-500 uppercase tracking-widest text-xs mb-4 pb-2 border-b border-slate-200 flex items-center justify-between">
+                    <span class="flex items-center gap-2"><span class="text-lg">${icon}</span> ${title}</span>
+                    ${badge}
+                </h4>
+                <ul class="space-y-2.5 flex-1">`;
+            items.forEach(it => {
+                html += `<li class="flex justify-between items-center text-sm border-b border-slate-200/50 pb-1.5 last:border-0 last:pb-0">
+                    <span class="text-slate-500 font-medium">${it.label}</span> 
+                    <span class="font-bold text-slate-800 text-right">${it.val}</span>
+                </li>`;
+            });
+            html += `</ul></div>`;
+            return html;
+        }
+
+        const badgeUSBR = `<span class="bg-indigo-100 text-indigo-700 text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">USBR</span>`;
+        
+        const itemsHidraulica = [
+            {label: "Caudal (Q)", val: valQ.toFixed(3) + " m³/s"},
+            {label: "Ancho canal (b)", val: valB.toFixed(2) + " m"},
+            {label: "Tirante Crítico (yc)", val: yc.toFixed(3) + " m"},
+            {label: "Tirante Normal (yn)", val: yn.toFixed(3) + " m"},
+            {label: "Número Froude (Fr)", val: Fr.toFixed(2)}
+        ];
+        const itemsTopografia = [
+            {label: "Desnivel (DV)", val: valHT.toFixed(3) + " m"},
+            {label: "Longitud (DH)", val: valLT.toFixed(3) + " m"},
+            {label: "Pendiente (S)", val: strPendiente},
+            {label: "Borde Libre (fb)", val: fb.toFixed(2) + " m"}
+        ];
+        const itemsEstructura = [
+            {label: "Altura Muro (Hm) *Auto", val: valMuro.toFixed(2) + " m"},
+            {label: "Espesor Radier (Er)", val: valRadier.toFixed(2) + " m"}
+        ];
+        if(isCE) {
+            itemsEstructura.push({label: "Altura Grada (he)", val: he.toFixed(3) + " m"}, {label: "Huella (le)", val: le.toFixed(3) + " m"});
+        } else if(hasFoso) {
+            itemsEstructura.push({label: "Tirante h1", val: h1.toFixed(3) + " m"});
+            itemsEstructura.push({label: "Tirante h2", val: h2.toFixed(3) + " m"});
+            itemsEstructura.push({label: "Largo Foso (L)", val: L_foso.toFixed(2) + " m"});
+            itemsEstructura.push({label: "Prof. Foso (P)", val: P_foso.toFixed(2) + " m"});
+        } else {
+            itemsEstructura.push({label: "Foso Disipador", val: "No Requerido"}, {label: "Tipo de Perfil", val: "Sección Recta"});
+        }
+        itemsEstructura.push({label: "Dist. Radier de Bajada", val: valDistanciaRadierBajada.toFixed(2) + " m"});
+
+        document.getElementById('summary-content').innerHTML = 
+            renderCard("HIDRÁULICA", "🌊", itemsHidraulica, `<span class="bg-blue-100 text-blue-700 text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">Manning</span>`) + 
+            renderCard("TOPOGRAFÍA", "⛰️", itemsTopografia) + 
+            renderCard("ESTRUCTURA", "🏗️", itemsEstructura, hasFoso ? badgeUSBR : "");
+
+        // --- GENERADOR DE TABLA PARA COPIAR ---
+        window.copyHtml = `
+        <table style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; border: 1px solid #cbd5e1;">
+            <thead><tr><th colspan="2" style="background-color: #2D3142; color: white; padding: 10px; font-size: 16px; text-align: center;">${inNombre.value.toUpperCase()}</th></tr></thead>
+            <tbody>
+                <tr><td colspan="2" style="background-color: #e2e8f0; font-weight: bold; padding: 8px; font-size: 14px;">1. HIDRÁULICA (Manning)</td></tr>
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Caudal (Q)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${valQ.toFixed(3)} m³/s</td></tr>
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Ancho canal (b)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${valB.toFixed(2)} m</td></tr>
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Tirante Crítico (yc)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${yc.toFixed(3)} m</td></tr>
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Tirante Normal (yn)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${yn.toFixed(3)} m</td></tr>
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Número Froude (Fr)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${Fr.toFixed(2)}</td></tr>
+                <tr><td colspan="2" style="background-color: #e2e8f0; font-weight: bold; padding: 8px; font-size: 14px;">2. TOPOGRAFÍA</td></tr>
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Desnivel (DV)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${valHT.toFixed(3)} m</td></tr>
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Longitud (DH)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${valLT.toFixed(3)} m</td></tr>
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Pendiente (S)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${strPendiente}</td></tr>
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Borde Libre (fb)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${fb.toFixed(2)} m</td></tr>
+                <tr><td colspan="2" style="background-color: #e2e8f0; font-weight: bold; padding: 8px; font-size: 14px;">3. ESTRUCTURA</td></tr>
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Altura Muro (Hm) *Auto</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${valMuro.toFixed(2)} m</td></tr>
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Espesor Radier (Er)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${valRadier.toFixed(2)} m</td></tr>
+                ${isCE ? `<tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Altura Grada (he)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${he.toFixed(3)} m</td></tr><tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Huella (le)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${le.toFixed(3)} m</td></tr>` : ''}
+                ${hasFoso ? `
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Tirante h1 (USBR)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${h1.toFixed(3)} m</td></tr>
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Tirante h2 (USBR)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${h2.toFixed(3)} m</td></tr>
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Largo Foso (Lc)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${L_foso.toFixed(2)} m</td></tr>
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Profundidad Foso (Pf)</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">${P_foso.toFixed(2)} m</td></tr>` : ''}
+                ${(!isCE && !hasFoso) ? `<tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1;">Foso Disipador</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">No Requerido</td></tr>` : ''}
+                <tr><td style="padding: 6px 10px; border: 1px solid #cbd5e1; color: #1d4ed8; font-weight: bold;">Distancia radier de bajada</td><td style="padding: 6px 10px; border: 1px solid #cbd5e1; color: #1d4ed8; font-weight: bold;">${valDistanciaRadierBajada.toFixed(2)} m</td></tr>
+            </tbody>
+        </table>`;
+
+        // --- DIBUJO ---
+        const w = 2400; const h = 1400;
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+
+        const m = 60; 
+        const drawAreaW = w - m * 2; 
+        const drawAreaH = h - m * 2; 
+
+        const leftPxMargin = 400;   
+        const rightPxMargin = 300;  
+        const topPxMargin = 250;    
+        const bottomPxMargin = 380; 
+
+        const structW_m = valLargoEnt + valLT + (hasFoso ? L_foso : 0) + valLargoSal;
+        const structH_m = valMuro + valHT + (hasFoso ? P_foso : 0) + valRadier;
+
+        const maxW_px = drawAreaW - leftPxMargin - rightPxMargin;
+        const maxH_px = drawAreaH - topPxMargin - bottomPxMargin;
+
+        const scale = Math.min(maxW_px / structW_m, maxH_px / structH_m);
+
+        const offsetX = m + leftPxMargin + (maxW_px - (structW_m * scale)) / 2;
+        const offsetY = m + topPxMargin + (maxH_px - (structH_m * scale)) / 2;
+        const startX = offsetX + (valLargoEnt * scale);
+        const startY = offsetY + (valMuro * scale);
+
+        const dPx = valHT * scale; const lPx = valLT * scale; 
+        const fLPx = hasFoso ? L_foso * scale : 0; 
+        const fPPx = hasFoso ? P_foso * scale : 0;
+        const rPx = valRadier * scale; const mPx = valMuro * scale; 
+        const ePx = valLargoEnt * scale; const sPx = valLargoSal * scale;
+
+        const yIn = startY; const yOut = yIn + dPx; const yF = yOut + fPPx; 
+        const endX = startX + lPx + fLPx + sPx;
+
+        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 5; ctx.strokeRect(m, m, w - m*2, h - m*2);
+        ctx.fillStyle = '#0f172a'; ctx.font = 'bold 48px Arial'; ctx.textAlign = 'center';
+        ctx.fillText(inNombre.value.toUpperCase(), w/2, m + 80);
+
+        const pts = []; const wallPts = []; const radBotPts = [];
+        pts.push({x: startX - ePx, y: yIn}, {x: startX, y: yIn});
+        wallPts.push({x: startX - ePx, y: yIn - mPx}, {x: startX, y: yIn - mPx});
+        radBotPts.push({x: startX - ePx, y: yIn + rPx}, {x: startX - rPx, y: yIn + rPx});
+
+        if (isCE) {
+            let cx = startX, cy = yIn;
+            for(let i=0; i<valN; i++){
+                cy += (valHT/valN)*scale; pts.push({x: cx, y: cy}); wallPts.push({x: cx, y: cy-mPx}); radBotPts.push({x: cx-rPx, y: cy+rPx});
+                if(i < valN-1){ cx += (valLT/(valN-1))*scale; pts.push({x: cx, y: cy}); wallPts.push({x: cx, y: cy-mPx}); radBotPts.push({x: cx-rPx, y: cy+rPx}); }
+            }
+        } else {
+            pts.push({x: startX + lPx, y: yOut}); wallPts.push({x: startX + lPx, y: yOut - mPx}); radBotPts.push({x: startX + lPx - rPx, y: yOut + rPx});
+            if (hasFoso) { 
+                pts.push({x: startX + lPx, y: yF}, {x: startX + lPx + fLPx, y: yF}, {x: startX + lPx + fLPx, y: yOut});
+                wallPts.push({x: startX + lPx + fLPx, y: yOut - mPx});
+                radBotPts.push({x: startX + lPx - rPx, y: yF + rPx}, {x: startX + lPx + fLPx + rPx, y: yF + rPx}, {x: startX + lPx + fLPx + rPx, y: yOut + rPx});
+            }
+        }
+        pts.push({x: endX, y: yOut}); wallPts.push({x: endX, y: yOut - mPx}); radBotPts.push({x: endX, y: yOut + rPx});
+
+        function fillP(p, c, f, s, w) {
+            ctx.beginPath(); ctx.moveTo(p[0].x, p[0].y); for(let i=1; i<p.length; i++) ctx.lineTo(p[i].x, p[i].y);
+            for(let i=c.length-1; i>=0; i--) ctx.lineTo(c[i].x, c[i].y); ctx.closePath();
+            ctx.fillStyle = f; ctx.fill(); ctx.strokeStyle = s; ctx.lineWidth = w; ctx.stroke();
+        }
+        
+        fillP(wallPts, pts, '#f1f5f9', '#94a3b8', 3);
+        fillP(pts, radBotPts, '#94a3b8', '#334155', 5);
+
+        // Agua Visual
+        const visualYc = Math.min(yn, valMuro * 0.95); 
+        const wH = Math.max(visualYc * scale, 12); 
+        ctx.fillStyle = 'rgba(14, 165, 233, 0.4)';
+        ctx.beginPath(); ctx.moveTo(startX - ePx, yIn - wH); ctx.lineTo(startX, yIn - wH);
+        if (isCV && valLT === 0) { 
+            const th = Math.min(Math.max(visualYc * scale * 1.5, 60), maxW_px * 0.3);
+            ctx.quadraticCurveTo(startX + th*0.4, yIn-wH, startX + th, yOut-wH);
+        } else if (isCE) {
+            let wx = startX, wy = yIn; 
+            const stepW = (valLT / (valN - 1)) * scale; const stepH = (valHT / valN) * scale;
+            for(let i=0; i<valN; i++) { wy += stepH; ctx.quadraticCurveTo(wx + stepW*0.3, wy - stepH*0.5, wx + stepW*0.1, wy - wH); if(i < valN-1) { wx += stepW; ctx.lineTo(wx, wy - wH); } }
+        } else {
+            ctx.lineTo(startX + lPx, yOut - wH);
+        }
+        ctx.lineTo(endX, yOut - wH); ctx.lineTo(endX, yOut);
+        for(let i=pts.length-1; i>=0; i--) if(pts[i].y >= yIn-wH-10) ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.fill();
+
+        // Líneas Rojas
+        ctx.save(); ctx.setLineDash([15, 10]); ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)'; ctx.lineWidth = 3;
+        const lineaTopY = m + 120; const lineaBottomY = h - m - 40; 
+        ctx.beginPath(); ctx.moveTo(startX, lineaTopY); ctx.lineTo(startX, lineaBottomY); ctx.stroke();
+        const xFinBajada = startX + lPx + (hasFoso ? fLPx : 0);
+        ctx.beginPath(); ctx.moveTo(xFinBajada, lineaTopY); ctx.lineTo(xFinBajada, lineaBottomY); ctx.stroke();
+        ctx.restore();
+
+        // Cotas
+        const tickSz = 10; const extGap = 12; const extOver = 6;
+        function drawDimH(x1, x2, yObj, yDim, label, pos="top") {
+            const dir = yDim > yObj ? 1 : -1;
+            ctx.strokeStyle = "#475569"; ctx.fillStyle = "#1e293b"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(x1, yObj + extGap * dir); ctx.lineTo(x1, yDim + extOver * dir); ctx.moveTo(x2, yObj + extGap * dir); ctx.lineTo(x2, yDim + extOver * dir); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x1 - extOver, yDim); ctx.lineTo(x2 + extOver, yDim); ctx.stroke();
+            ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x1 - tickSz, yDim + tickSz); ctx.lineTo(x1 + tickSz, yDim - tickSz); ctx.moveTo(x2 - tickSz, yDim + tickSz); ctx.lineTo(x2 + tickSz, yDim - tickSz); ctx.stroke();
+            ctx.font = "bold 22px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle";
+            const tw = ctx.measureText(label).width; const textY = pos === "bottom" ? yDim + 18 : yDim - 18;
+            ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fillRect((x1+x2)/2 - tw/2 - 6, textY - 12, tw + 12, 24);
+            ctx.fillStyle="#1e293b"; ctx.fillText(label, (x1+x2)/2, textY);
+        }
+
+        function drawDimV(y1, y2, xObj, xDim, label, pos="left") {
+            const dir = xDim > xObj ? 1 : -1;
+            ctx.strokeStyle = "#475569"; ctx.fillStyle = "#1e293b"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(xObj + extGap * dir, y1); ctx.lineTo(xDim + extOver * dir, y1); ctx.moveTo(xObj + extGap * dir, y2); ctx.lineTo(xDim + extOver * dir, y2); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(xDim, y1 - extOver); ctx.lineTo(xDim, y2 + extOver); ctx.stroke();
+            ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(xDim - tickSz, y1 + tickSz); ctx.lineTo(xDim + tickSz, y1 - tickSz); ctx.moveTo(xDim - tickSz, y2 + tickSz); ctx.lineTo(xDim + tickSz, y2 - tickSz); ctx.stroke();
+            ctx.save(); ctx.translate(xDim, (y1+y2)/2); ctx.rotate(-Math.PI/2); ctx.font = "bold 22px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle";
+            const tw = ctx.measureText(label).width; const textY = pos === "left" ? -18 : 18;
+            ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fillRect(-tw/2 - 6, textY - 12, tw + 12, 24);
+            ctx.fillStyle="#1e293b"; ctx.fillText(label, 0, textY); ctx.restore();
+        }
+
+        const laneV1 = startX - ePx - 140;
+        drawDimV(yIn - mPx, yIn, startX - ePx, laneV1, valMuro.toFixed(2), "left");
+        drawDimV(yIn, yOut, startX - ePx, laneV1, valHT.toFixed(2), "left");
+        
+        const laneV2 = laneV1 - 90;
+        const yMaxFoso = hasFoso ? yF : yOut;
+        drawDimV(yIn - mPx, yMaxFoso + rPx, startX - ePx, laneV2, (valMuro + valHT + P_foso + valRadier).toFixed(2), "left");
+        
+        drawDimH(startX - ePx, startX, yIn-mPx, yIn-mPx-120, valLargoEnt.toFixed(2), "top");
+        
+        const laneH1 = Math.max(yF, yOut) + rPx + 140;
+        if (valLT > 0) drawDimH(startX, startX + lPx, yOut + rPx, laneH1, valLT.toFixed(2), "bottom");
+        if (hasFoso) drawDimH(startX + lPx, startX + lPx + fLPx, yOut + rPx, laneH1, L_foso.toFixed(2), "bottom");
+        drawDimH(endX - sPx, endX, yOut + rPx, laneH1, valLargoSal.toFixed(2), "bottom");
+        
+        const laneH2 = laneH1 + 90;
+        ctx.font = "bold 26px Arial"; ctx.fillStyle = "#2563eb"; ctx.textAlign = "center"; 
+        ctx.fillText(`DISTANCIA RADIER DE BAJADA = ${valDistanciaRadierBajada.toFixed(2)} m`, (startX - ePx + endX) / 2, laneH2);
+
+        if (isCE) {
+            const sw = (valLT / (valN-1)) * scale; const sh = (valHT/valN) * scale;
+            drawDimH(startX, startX + sw, yIn+sh, yIn+sh+80, le.toFixed(3), "bottom");
+            drawDimV(yIn, yIn+sh, startX, startX-80, he.toFixed(3), "left");
+        }
+        if (hasFoso && P_foso > 0.05) { drawDimV(yOut, yF, startX + lPx, startX + lPx - 90, P_foso.toFixed(2), "left"); }
+        drawDimV(yOut, yOut+rPx, endX, endX + 120, valRadier.toFixed(2), "right");
+
+        // Anotaciones
+        function drawLeaderAnnotation(x, y, text, dx, dy, tailW = 50) {
+            ctx.save(); ctx.strokeStyle = '#64748b'; ctx.lineWidth = 2.5; ctx.setLineDash([]);
+            ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fillStyle = '#ef4444'; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+            const tx = x + dx; const ty = y + dy; const tailEnd = dx > 0 ? tx + tailW : tx - tailW;
+            ctx.strokeStyle = '#64748b'; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(tx, ty); ctx.lineTo(tailEnd, ty); ctx.stroke();
+            ctx.font = "bold 16px Arial"; ctx.fillStyle = "#334155";
+            ctx.textAlign = dx > 0 ? "left" : "right"; ctx.textBaseline = "bottom";
+            const textX = dx > 0 ? tx + 6 : tx - 6; ctx.fillText(text, textX, ty - 6); ctx.restore();
+        }
+
+        drawLeaderAnnotation(startX - ePx*0.6, yIn - mPx, "CANAL ENTRADA", -50, -40, 120);
+        drawLeaderAnnotation(startX, yIn - mPx, "INICIO BAJADA", -90, -90, 120);
+        drawLeaderAnnotation(startX - ePx*0.4, yIn + rPx, `RADIER (Er=${valRadier.toFixed(2)}m)`, -60, 110, 150);
+        drawLeaderAnnotation(xFinBajada, yOut, "FIN CAÍDA", -65, 80, 120);
+        if(hasFoso) drawLeaderAnnotation(startX + lPx + fLPx/2, yF, "CÁMARA DISIPACIÓN (USBR)", 65, 65, 150);
+        drawLeaderAnnotation(endX - sPx*0.6, yOut - mPx, "CANAL SALIDA", 60, -60, 120);
+
+        if (valLT > 0) {
+            ctx.save(); ctx.translate(startX + lPx/2, (yIn+yOut)/2 - 45); ctx.rotate(Math.atan2(valHT, valLT));
+            ctx.font = "bold 22px Arial"; ctx.fillStyle = "#64748b"; ctx.textAlign="center"; 
+            ctx.fillText(`Pendiente = ${pendientePct.toFixed(1)}%`, 0, 0); ctx.restore();
+        }
+    }
+
+    window.onload = updateEngine;
+
+</script>
+</body>
+</html>
